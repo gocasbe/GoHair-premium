@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "GoHair",
+    "slug": "gohair-premium",
+    "scheme": "gohair",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/logo.png",
+      "imageWidth": 160,
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "be.gocas.gohair"
+    },
+    "android": {
+      "package": "be.gocas.gohair",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autoriser l'acc\u00e8s \u00e0 vos photos pour choisir un avatar.",
+          "cameraPermission": "Autoriser l'acc\u00e8s \u00e0 la cam\u00e9ra pour prendre un avatar."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false,
+	"baseUrl": "/GoHair-premium"
+    }
+  }
+}
