@@ -56,40 +56,8 @@ export const initialStaff: Staff[] = [
 const NAMES = ['Camille Martin', 'Lucas Dubois', 'Emma Lambert', 'Noah Peeters', 'Léa Dupuis', 'Hugo Janssens', 'Chloé Lemaire', 'Louis Renard', 'Manon Collin', 'Jules Hanot'];
 const TIMES = ['09:00', '09:30', '10:30', '11:00', '13:30', '14:00', '15:30', '16:30', '17:00'];
 
-/** Réservations factices autour de la date du jour (déterministes pour des KPI stables). */
-function seedBookings(): Booking[] {
-  const out: Booking[] = [];
-  let n = 0;
-  for (let d = -7; d <= 4; d++) {
-    const count = d === 0 ? 4 : 2 + ((d + 9) % 3);
-    for (let k = 0; k < count; k++, n++) {
-      const sv = [initialServices[(n * 3) % 8].id, ...(n % 3 === 0 ? [initialServices[(n * 3 + 1) % 8].id] : [])];
-      const total = sv.reduce((s, id) => s + (initialServices.find((x) => x.id === id)?.price ?? 0), 0);
-      const past = d < 0;
-      out.push({
-        id: `b${n}`,
-        salonId: SALON_ID,
-        customer: NAMES[n % NAMES.length],
-        mine: false,
-        serviceIds: sv,
-        staffId: initialStaff[n % 3].id,
-        date: dayjs().add(d, 'day').format('YYYY-MM-DD'),
-        time: TIMES[(n * 2 + k) % TIMES.length],
-        status: past ? (n % 7 === 0 ? 'canceled' : 'done') : d === 0 ? (k < 2 ? 'confirmed' : 'pending') : n % 2 ? 'pending' : 'confirmed',
-        total,
-        pay: n % 2 ? 'card' : 'onsite',
-      });
-    }
-  }
-  // historique et réservation à venir du client connecté (démo)
-  out.push(
-    { id: 'm1', salonId: SALON_ID, customer: 'Camille Martin', mine: true, serviceIds: ['v1'], staffId: 'e1', date: dayjs().add(2, 'day').format('YYYY-MM-DD'), time: '14:00', status: 'confirmed', total: 45, pay: 'onsite' },
-    { id: 'm2', salonId: 'maison-lea', customer: 'Camille Martin', mine: true, serviceIds: ['v7'], staffId: null, date: dayjs().subtract(12, 'day').format('YYYY-MM-DD'), time: '11:00', status: 'done', total: 40, pay: 'card' },
-    { id: 'm3', salonId: SALON_ID, customer: 'Camille Martin', mine: true, serviceIds: ['v2'], staffId: 'e3', date: dayjs().subtract(40, 'day').format('YYYY-MM-DD'), time: '10:30', status: 'done', total: 70, pay: 'onsite' },
-  );
-  return out;
-}
-export const initialBookings = seedBookings();
+/** Données de réservation vides (sans démo). */
+export const initialBookings: Booking[] = [];
 
 /** Créneaux de 30 min de 09:00 à 18:30. */
 export const SLOTS: string[] = Array.from({ length: 19 }, (_, i) => dayjs().startOf('day').hour(9).minute(i * 30).format('HH:mm'));

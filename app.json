@@ -42,8 +42,8 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": false,
-	"baseUrl": "/GoHair-premium"
+      "typedRoutes": false
+
     }
   }
 }

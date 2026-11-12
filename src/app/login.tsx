@@ -8,31 +8,71 @@ import { useToast } from '@/components/ui/Feedback';
 import { Header, Input } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
 import { useI18n } from '@/lib/i18n';
-import { Role, useSession } from '@/lib/session';
+import { useSession } from '@/lib/session';
+import { googleSignInAvailable, resetPassword, signInWithEmail, signInWithGoogle } from '@/lib/auth';
 import { colors, radius } from '@/lib/theme';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Connexion : un sélecteur d'espace (client / gérant), deux champs, un CTA. */
+/** Connexion avec Firebase : email/password ou Google OAuth. */
 export default function Login() {
   const { t } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signIn } = useSession();
   const toast = useToast();
-  const [role, setRole] = useState<Role>('client');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   const submit = async () => {
     const e = { email: EMAIL.test(email.trim()) ? undefined : t('auth.invalidEmail'), password: password ? undefined : t('auth.needPassword') };
     setErrors(e);
     if (e.email || e.password) return;
     setBusy(true);
-    await signIn(email.trim(), role);
-    router.replace(role === 'admin' ? '/admin' : '/home');
+    try {
+      const user = await signInWithEmail(email.trim(), password);
+      await signIn(user);
+      
+      if (!user.emailVerified) {
+        toast(t('auth.verifyEmailSent'), 'info');
+      }
+      
+      router.replace(user.role === 'admin' ? '/admin' : '/home');
+    } catch (error: any) {
+      toast(error.message || t('auth.loginError'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleBusy(true);
+    try {
+      const user = await signInWithGoogle();
+      await signIn(user);
+      router.replace(user.role === 'admin' ? '/admin' : '/home');
+    } catch (error: any) {
+      toast(error.message || t('auth.googleError'), 'error');
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const mail = email.trim();
+    if (!EMAIL.test(mail)) {
+      setErrors({ email: t('auth.resetNeedEmail') });
+      return;
+    }
+    try {
+      await resetPassword(mail);
+      toast(t('auth.resetSent'), 'success');
+    } catch (error: any) {
+      toast(error.message || t('auth.resendError'), 'error');
+    }
   };
 
   return (
@@ -43,31 +83,32 @@ export default function Login() {
           {t('auth.loginTitle')}
         </Text>
         <Text color={colors.muted} style={{ marginTop: 8, marginBottom: 24 }}>
-          {role === 'admin' ? t('auth.adminSub') : t('auth.loginSub')}
+          {t('auth.loginSub')}
         </Text>
-
-        <View style={styles.seg}>
-          {(['client', 'admin'] as Role[]).map((r) => (
-            <Pressable key={r} onPress={() => setRole(r)} accessibilityRole="tab" accessibilityState={{ selected: role === r }} style={[styles.segItem, role === r && styles.segOn]}>
-              <Text variant="small" weight="bold" color={role === r ? colors.ink : colors.muted}>
-                {t(`auth.${r}`)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
 
         <Input label={t('auth.email')} icon="mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} error={errors.email} placeholder="nom@exemple.be" />
         <Input label={t('auth.password')} icon="lock" value={password} onChangeText={setPassword} secureTextEntry error={errors.password} placeholder="••••••••" onSubmitEditing={submit} />
-        <Pressable onPress={() => toast(t('auth.resetSent'), 'success')} hitSlop={8} style={{ alignSelf: 'flex-end', marginTop: -4, marginBottom: 20 }}>
+        <Pressable onPress={handleForgotPassword} hitSlop={8} style={{ alignSelf: 'flex-end', marginTop: -4, marginBottom: 20 }}>
           <Text variant="small" weight="bold" color={colors.accent}>
             {t('auth.forgot')}
           </Text>
         </Pressable>
 
         <Button title={t('auth.submit')} size="lg" onPress={submit} loading={busy} />
-        <Text variant="small" color={colors.faint} align="center" style={{ marginTop: 14 }}>
-          {t('auth.demo')}
-        </Text>
+        
+        {googleSignInAvailable && (
+          <>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text variant="small" color={colors.muted} style={styles.dividerText}>
+                {t('auth.or')}
+              </Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <Button title={t('auth.googleSignIn')} variant="secondary" size="lg" onPress={handleGoogleSignIn} loading={googleBusy} icon="chrome" />
+          </>
+        )}
 
         <View style={styles.footer}>
           <Text color={colors.muted}>{t('auth.noAccount')} </Text>
@@ -83,8 +124,8 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  seg: { flexDirection: 'row', backgroundColor: colors.line, borderRadius: radius.pill, padding: 4, marginBottom: 22 },
-  segItem: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
-  segOn: { backgroundColor: colors.surface, boxShadow: '0 2px 8px rgba(18,32,30,0.08)' } as never,
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.line },
+  dividerText: { marginHorizontal: 16 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 28 },
 });

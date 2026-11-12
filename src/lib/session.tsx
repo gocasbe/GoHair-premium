@@ -1,37 +1,37 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { onAuthStateChange, signOut as firebaseSignOut, type AuthUser, type Role } from './auth';
 
-export type Role = 'client' | 'admin';
-type Auth = { uid: string; role: Role } | null;
 const KEY = 'auth';
 
 type SessionValue = {
   ready: boolean;
   uid: string | null;
+  email: string | null;
   role: Role | null;
-  /** résolu une fois l'état propagé : on peut alors naviguer vers un écran protégé */
-  signIn: (uid: string, role: Role) => Promise<void>;
+  emailVerified: boolean;
+  signIn: (user: AuthUser) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
 const SessionContext = createContext<SessionValue | null>(null);
 
-/** Session locale (démo) : l'e-mail fait office d'identifiant, le rôle ouvre l'espace client ou gérant. */
+/** Session Firebase avec authentification réelle (email validation + Google OAuth). */
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [auth, setAuth] = useState<Auth>(null);
-  const ref = useRef<Auth>(null);
+  const [auth, setAuth] = useState<AuthUser | null>(null);
+  const ref = useRef<AuthUser | null>(null);
   const waiters = useRef<(() => void)[]>([]);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY)
-      .then((v) => {
-        const a = v ? (JSON.parse(v) as Auth) : null;
-        ref.current = a;
-        setAuth(a);
-      })
-      .catch(() => setAuth(null))
-      .finally(() => setReady(true));
+    // Écouter les changements d'état Firebase
+    const unsubscribe = onAuthStateChange((user) => {
+      ref.current = user;
+      setAuth(user);
+      setReady(true);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // les effets du provider s'exécutent après ceux du navigateur : les routes protégées sont alors à jour
@@ -39,7 +39,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     waiters.current.splice(0).forEach((r) => r());
   }, [auth]);
 
-  const change = useCallback(async (next: Auth) => {
+  const change = useCallback(async (next: AuthUser | null) => {
     ref.current = next;
     try {
       if (next) await AsyncStorage.setItem(KEY, JSON.stringify(next));
@@ -55,9 +55,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ready,
       uid: auth?.uid ?? null,
+      email: auth?.email ?? null,
       role: auth?.role ?? null,
-      signIn: (uid, role) => change({ uid, role }),
-      signOut: () => change(null),
+      emailVerified: auth?.emailVerified ?? false,
+      signIn: (user) => change(user),
+      signOut: async () => {
+        await firebaseSignOut();
+        await change(null);
+      },
     }),
     [ready, auth, change],
   );

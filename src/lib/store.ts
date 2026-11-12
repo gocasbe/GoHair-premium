@@ -9,7 +9,7 @@ import { Booking, BookingStatus, Service, Staff, initialBookings, initialService
  */
 type State = { bookings: Booking[]; services: Service[]; staff: Staff[]; favorites: string[] };
 
-let state: State = { bookings: initialBookings, services: initialServices, staff: initialStaff, favorites: ['studio-lumiere'] };
+let state: State = { bookings: initialBookings, services: initialServices, staff: initialStaff, favorites: [] };
 const listeners = new Set<() => void>();
 const commit = (patch: Partial<State>) => {
   state = { ...state, ...patch };
