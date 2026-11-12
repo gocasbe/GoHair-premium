@@ -28,6 +28,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="planning" options={{ title: t('admin.planning'), tabBarIcon: icon('calendar') }} />
       <Tabs.Screen name="services" options={{ title: t('admin.services'), tabBarIcon: icon('scissors') }} />
       <Tabs.Screen name="team" options={{ title: t('admin.team'), tabBarIcon: icon('users') }} />
+      <Tabs.Screen name="promos" options={{ title: 'Promos', tabBarIcon: icon('tag') }} />
     </Tabs>
   );
 }

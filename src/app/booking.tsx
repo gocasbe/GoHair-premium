@@ -12,6 +12,7 @@ import { Booking, L, SLOTS, fmtTime, salons } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { store, useStore } from '@/lib/store';
+import { scheduleReminderNotification } from '@/lib/notifications';
 import { colors, radius, shadow } from '@/lib/theme';
 
 const DAYS = 14;
@@ -68,6 +69,8 @@ export default function BookingScreen() {
   const confirm = () => {
     const b: Booking = { id: `m${Date.now()}`, salonId: salon.id, customer: (uid ?? 'client').split('@')[0], mine: true, serviceIds: chosen.map((s) => s.id), staffId, date: day, time: time!, status: 'pending', total, pay };
     store.addBooking(b);
+    // Programmer un rappel 24h avant le rendez-vous
+    scheduleReminderNotification(b.id, salon.name, day, time!);
     setStep(2);
   };
 

@@ -3,11 +3,14 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AdminBooking } from '@/components/AdminBooking';
 import { AdminTop } from '@/components/AdminTop';
+import { Button } from '@/components/ui/Button';
 import { Empty } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
-import { SALON_ID } from '@/lib/data';
+import { SALON_ID, salons } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
 import { useStore } from '@/lib/store';
+import { sendAvailabilityNotification } from '@/lib/notifications';
+import { useToast } from '@/components/ui/Feedback';
 import { colors } from '@/lib/theme';
 
 const RANGE = Array.from({ length: 14 }, (_, i) => i - 3);
@@ -15,11 +18,26 @@ const RANGE = Array.from({ length: 14 }, (_, i) => i - 3);
 /** Planning : bandeau de jours, rendez-vous triés par heure, mise à jour en direct. */
 export default function Planning() {
   const { t } = useI18n();
+  const toast = useToast();
   const all = useStore((s) => s.bookings);
+  const staff = useStore((s) => s.staff);
   const [day, setDay] = useState(dayjs().format('YYYY-MM-DD'));
   const days = useMemo(() => RANGE.map((o) => dayjs().add(o, 'day')), []);
   const list = useMemo(() => all.filter((b) => b.salonId === SALON_ID && b.date === day && b.status !== 'canceled').sort((a, b) => a.time.localeCompare(b.time)), [all, day]);
   const countOn = (key: string) => all.filter((b) => b.salonId === SALON_ID && b.date === key && b.status !== 'canceled').length;
+
+  const notifyAvailability = async () => {
+    const salon = salons.find((s) => s.id === SALON_ID);
+    const stylist = staff[0]?.name || 'Équipe';
+    const time = list.length > 0 ? list[0].time : '09:00';
+    
+    try {
+      await sendAvailabilityNotification(salon?.name || 'Studio Lumière', stylist, time);
+      toast('Notification de disponibilité envoyée', 'success');
+    } catch (error) {
+      toast('Erreur lors de l\'envoi', 'error');
+    }
+  };
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
@@ -43,6 +61,7 @@ export default function Planning() {
         })}
       </ScrollView>
       <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+        <Button title="Notifier disponibilité" variant="secondary" icon="bell" onPress={notifyAvailability} style={{ marginBottom: 16 }} />
         {list.length === 0 ? <Empty icon="calendar" title={t('admin.planningNone')} text={t('admin.planningNoneText')} /> : list.map((b) => <AdminBooking key={b.id} b={b} />)}
       </View>
     </ScrollView>
