@@ -26,14 +26,16 @@ export interface AuthUser {
 /**
  * Créer un compte utilisateur avec email/mot de passe
  * Envoie un email de validation automatiquement
+ * Le rôle est toujours 'client' par défaut (les admins sont créés manuellement)
  */
-export async function registerWithEmail(email: string, password: string, role: Role = 'client'): Promise<AuthUser> {
+export async function registerWithEmail(email: string, password: string): Promise<AuthUser> {
   const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
   
   // Envoyer l'email de validation
   await sendEmailVerification(userCredential.user);
   
-  // Sauvegarder le rôle dans Firestore
+  // Sauvegarder le rôle dans Firestore (toujours 'client')
+  const role: Role = 'client';
   await setDoc(doc(db, 'users', userCredential.user.uid), {
     email,
     role,

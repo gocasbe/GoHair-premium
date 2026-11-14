@@ -38,7 +38,7 @@ export default function Register() {
     if (e.name || e.email || e.password) return;
     setBusy(true);
     try {
-      const user = await registerWithEmail(email.trim(), password, 'client');
+      const user = await registerWithEmail(email.trim(), password);
       await signIn(user);
       toast(t('auth.verifyEmailSent'), 'success');
       router.replace('/home');
