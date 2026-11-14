@@ -43,7 +43,8 @@ export default function Register() {
       toast(t('auth.verifyEmailSent'), 'success');
       router.replace('/home');
     } catch (error: any) {
-      toast(error.message || t('auth.registerError'), 'error');
+      const errorMessage = error.code || error.message || t('auth.registerError');
+      toast(errorMessage, 'error');
     } finally {
       setBusy(false);
     }
