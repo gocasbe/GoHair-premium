@@ -43,6 +43,22 @@ let rawBookings: StoredBooking[] = [];
 let currentUid: string | null = null;
 const publishBookings = () => commit({ bookings: rawBookings.map((b) => ({ ...b, mine: !!currentUid && b.userId === currentUid })) });
 
+// Tant que Firestore n'a aucune prestation / aucun membre, on affiche le catalogue par défaut.
+// À la première modification par le gérant, ce catalogue est d'abord enregistré dans Firestore,
+// sinon ajouter une seule prestation ferait disparaître toutes les autres.
+let servicesInDb = false;
+let staffInDb = false;
+const seedServices = async () => {
+  if (servicesInDb) return;
+  await Promise.all(initialServices.map(({ image: _image, ...s }) => saveService(s)));
+  servicesInDb = true;
+};
+const seedStaff = async () => {
+  if (staffInDb) return;
+  await Promise.all(initialStaff.map((s) => saveStaff(s)));
+  staffInDb = true;
+};
+
 let started = false;
 const unsubscribers: (() => void)[] = [];
 
@@ -67,8 +83,14 @@ export async function initializeStore() {
       publishBookings();
     }),
     // Collection vide (pas encore initialisée) : on garde le catalogue par défaut plutôt qu'un écran vide.
-    subscribeToServices((services) => commit({ services: services.length ? services.map(withImage) : initialServices })),
-    subscribeToStaff((staff) => commit({ staff: staff.length ? staff : initialStaff })),
+    subscribeToServices((services) => {
+      servicesInDb = services.length > 0;
+      commit({ services: servicesInDb ? services.map(withImage) : initialServices });
+    }),
+    subscribeToStaff((staff) => {
+      staffInDb = staff.length > 0;
+      commit({ staff: staffInDb ? staff : initialStaff });
+    }),
   );
 
   commit({ ready: true });
@@ -101,10 +123,22 @@ export const store = {
       console.error('Error saving favorites:', error);
     }
   },
-  upsertService: ({ image: _image, ...s }: Service) => saveService(s),
-  removeService: (id: string) => deleteService(id),
-  upsertStaff: (s: Staff) => saveStaff(s),
-  removeStaff: (id: string) => deleteStaff(id),
+  upsertService: async ({ image: _image, ...s }: Service) => {
+    await seedServices();
+    await saveService(s);
+  },
+  removeService: async (id: string) => {
+    await seedServices();
+    await deleteService(id);
+  },
+  upsertStaff: async (s: Staff) => {
+    await seedStaff();
+    await saveStaff(s);
+  },
+  removeStaff: async (id: string) => {
+    await seedStaff();
+    await deleteStaff(id);
+  },
 };
 
 export function useStore<T>(selector: (s: State) => T): T {
