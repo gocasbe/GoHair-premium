@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InstallBanner } from '@/components/InstallBanner';
 import { SalonCard } from '@/components/SalonCard';
 import { Button } from '@/components/ui/Button';
 import { Avatar, Chip, Empty, Input, SectionTitle } from '@/components/ui/Primitives';
@@ -23,15 +24,15 @@ export default function Home() {
   const { t, lang, money } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { uid } = useSession();
+  const { email } = useSession();
   const services = useStore((s) => s.services);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<'all' | Category>('all');
 
   const name = useMemo(() => {
-    const raw = (uid ?? '').split('@')[0].split(/[._-]+/)[0].trim();
-    return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Camille';
-  }, [uid]);
+    const raw = (email ?? '').split('@')[0].split(/[._-]+/)[0].trim();
+    return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
+  }, [email]);
 
   const query = q.trim().toLowerCase();
   const list = useMemo(
@@ -57,6 +58,7 @@ export default function Home() {
         <View style={{ marginTop: 18 }}>
           <Input icon="search" value={q} onChangeText={setQ} placeholder={t('home.search')} />
         </View>
+        <InstallBanner />
 
         {/* bandeau de réassurance + CTA principal */}
         <View style={[styles.hero, shadow.lift]}>

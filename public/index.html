@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>%WEB_TITLE%</title>
+    <!-- PWA : __BASE_URL__ est remplacé au build par scripts/pwa-postbuild.js -->
+    <link rel="manifest" href="__BASE_URL__/manifest.json" />
+    <meta name="theme-color" content="#FBFAF8" />
+    <meta name="description" content="Réservez votre coiffeur en quelques secondes." />
+    <!-- iPhone / iPad : « Sur l'écran d'accueil » -->
+    <link rel="apple-touch-icon" href="__BASE_URL__/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="GoHair" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <script>
+      (function () {
+        var base = '__BASE_URL__';
+        // en développement (expo start) le texte n'est pas remplacé : pas de service worker
+        if (base.charAt(0) === '_' || !('serviceWorker' in navigator)) return;
+        var hadController = !!navigator.serviceWorker.controller;
+        // nouvelle version déployée : le nouveau service worker prend la main, on recharge une fois
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (hadController) window.location.reload();
+          hadController = true;
+        });
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register(base + '/sw.js', { scope: base + '/' }).then(function (reg) {
+            document.addEventListener('visibilitychange', function () {
+              if (document.visibilityState === 'visible') reg.update();
+            });
+          });
+        });
+      })();
+    </script>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript> You need to enable JavaScript to run this app. </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>

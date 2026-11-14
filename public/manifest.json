@@ -1,0 +1,18 @@
+{
+  "id": "__BASE_URL__/",
+  "name": "GoHair — Réservation coiffure",
+  "short_name": "GoHair",
+  "description": "Réservez votre coiffeur en quelques secondes.",
+  "lang": "fr",
+  "start_url": "__BASE_URL__/",
+  "scope": "__BASE_URL__/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#FBFAF8",
+  "background_color": "#FBFAF8",
+  "icons": [
+    { "src": "__BASE_URL__/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "__BASE_URL__/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "__BASE_URL__/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

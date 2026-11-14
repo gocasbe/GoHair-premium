@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InstallBanner } from '@/components/InstallBanner';
 import { LanguageSwitch } from '@/components/LanguageSwitch';
 import { Button } from '@/components/ui/Button';
 import { Avatar, Card, Toggle } from '@/components/ui/Primitives';
@@ -70,6 +71,8 @@ export default function Account() {
           </Text>
         </Card>
       </View>
+
+      <InstallBanner dismissible={false} />
 
       <Text variant="caption" color={colors.faint} style={{ marginTop: 28, marginBottom: 10 }}>
         {t('account.settings')}

@@ -19,7 +19,7 @@ jobs:
           node-version: 22
       - run: npm install --legacy-peer-deps
       # GitHub Pages sert le site sous /<nom-du-dépôt>/ : les fichiers JS doivent être cherchés là
-      - run: npx expo export --platform web
+      - run: npm run export:web
         env:
           EXPO_BASE_URL: /${{ github.event.repository.name }}
       - run: cp dist/index.html dist/404.html && touch dist/.nojekyll
