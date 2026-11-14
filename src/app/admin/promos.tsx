@@ -1,19 +1,17 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageSwitch } from '@/components/LanguageSwitch';
 import { Button } from '@/components/ui/Button';
 import { Header, Input } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
-import { useI18n } from '@/lib/i18n';
 import { sendPromoNotification } from '@/lib/notifications';
 import { useToast } from '@/components/ui/Feedback';
 import { colors } from '@/lib/theme';
 
 /** Page admin pour créer et envoyer des notifications promo. */
 export default function AdminPromos() {
-  const { t } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -33,7 +31,7 @@ export default function AdminPromos() {
       toast('Promo envoyée avec succès', 'success');
       setTitle('');
       setBody('');
-    } catch (error) {
+    } catch {
       toast('Erreur lors de l\'envoi de la promo', 'error');
     } finally {
       setBusy(false);

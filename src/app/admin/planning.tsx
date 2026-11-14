@@ -34,7 +34,7 @@ export default function Planning() {
     try {
       await sendAvailabilityNotification(salon?.name || 'Studio Lumière', stylist, time);
       toast('Notification de disponibilité envoyée', 'success');
-    } catch (error) {
+    } catch {
       toast('Erreur lors de l\'envoi', 'error');
     }
   };

@@ -18,22 +18,17 @@ export default function Account() {
   const { t } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { uid, role, signOut } = useSession();
+  const { email, role, signOut } = useSession();
   const bookings = useStore((s) => s.bookings);
   const favorites = useStore((s) => s.favorites);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({ promos: true, availability: true, reminders: true });
   const mine = bookings.filter((b) => b.mine).length;
-  const name = (uid ?? 'camille').split('@')[0].replace(/[._-]+/g, ' ');
+  const name = (email || 'client').split('@')[0].replace(/[._-]+/g, ' ');
 
   useEffect(() => {
-    loadNotificationPreferences();
+    getNotificationPreferences().then(setNotificationPrefs).catch(() => {});
     requestNotificationPermission();
   }, []);
-
-  const loadNotificationPreferences = async () => {
-    const prefs = await getNotificationPreferences();
-    setNotificationPrefs(prefs);
-  };
 
   const updateNotificationPref = async (key: keyof NotificationPreferences, value: boolean) => {
     const updated = { ...notificationPrefs, [key]: value };
@@ -56,7 +51,7 @@ export default function Account() {
             {name}
           </Text>
           <Text color={colors.muted} numberOfLines={1}>
-            {uid}
+            {email}
           </Text>
         </View>
       </View>

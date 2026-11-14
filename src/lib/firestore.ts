@@ -1,121 +1,68 @@
-import { collection, addDoc, getDoc, getDocs, doc, updateDoc, deleteDoc, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc, type DocumentData, type QuerySnapshot } from 'firebase/firestore';
 import { db } from './firebase';
-import { Booking, Service, Staff } from './data';
-
-// Collections
-const BOOKINGS_COLLECTION = 'bookings';
-const SERVICES_COLLECTION = 'services';
-const STAFF_COLLECTION = 'staff';
+import type { Booking, Service, Staff } from './data';
 
 /**
- * Firestore Service - Gère les données dans Firestore
+ * Accès Firestore (réservations, prestations, équipe).
+ * - L'identifiant d'un document est toujours celui de Firestore (`doc.id`), jamais un champ stocké.
+ * - Les images ne sont pas stockées : ce sont des `require()` locaux, réattachés par le store.
+ * - Le champ calculé `mine` n'est jamais stocké : il dépend de l'utilisateur connecté.
  */
+const BOOKINGS = 'bookings';
+const SERVICES = 'services';
+const STAFF = 'staff';
+
+/** Firestore refuse les valeurs `undefined` : on les retire avant écriture. */
+const clean = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as DocumentData;
+
+const rows = <T>(snap: QuerySnapshot<DocumentData>) => snap.docs.map((d) => ({ ...d.data(), id: d.id }) as T);
+
+const onError = (what: string) => (error: Error) => console.error(`[firestore] ${what}:`, error.message);
 
 // === RÉSERVATIONS ===
 
-export async function createBooking(booking: Omit<Booking, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, BOOKINGS_COLLECTION), booking);
-  return docRef.id;
+export type StoredBooking = Omit<Booking, 'mine'>;
+
+export async function createBooking(booking: Omit<StoredBooking, 'id'>): Promise<string> {
+  const ref = await addDoc(collection(db, BOOKINGS), clean(booking));
+  return ref.id;
 }
 
-export async function getBooking(id: string): Promise<Booking | null> {
-  const docSnap = await getDoc(doc(db, BOOKINGS_COLLECTION, id));
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as Booking;
-  }
-  return null;
+export async function updateBooking(id: string, data: Partial<Omit<StoredBooking, 'id'>>): Promise<void> {
+  await updateDoc(doc(db, BOOKINGS, id), clean(data));
 }
 
-export async function getAllBookings(): Promise<Booking[]> {
-  const querySnapshot = await getDocs(collection(db, BOOKINGS_COLLECTION));
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Booking[];
-}
-
-export async function updateBooking(id: string, data: Partial<Booking>): Promise<void> {
-  await updateDoc(doc(db, BOOKINGS_COLLECTION, id), data);
-}
-
-export async function deleteBooking(id: string): Promise<void> {
-  await deleteDoc(doc(db, BOOKINGS_COLLECTION, id));
-}
-
-export function subscribeToBookings(callback: (bookings: Booking[]) => void): () => void {
-  const q = query(collection(db, BOOKINGS_COLLECTION), orderBy('date', 'desc'));
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Booking[];
-    callback(bookings);
-  });
-  return unsubscribe;
+export function subscribeToBookings(callback: (bookings: StoredBooking[]) => void): () => void {
+  return onSnapshot(collection(db, BOOKINGS), (snap) => callback(rows<StoredBooking>(snap)), onError('bookings'));
 }
 
 // === PRESTATIONS ===
 
-export async function createService(service: Omit<Service, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, SERVICES_COLLECTION), service);
-  return docRef.id;
-}
+export type StoredService = Omit<Service, 'image'>;
 
-export async function getService(id: string): Promise<Service | null> {
-  const docSnap = await getDoc(doc(db, SERVICES_COLLECTION, id));
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as Service;
-  }
-  return null;
-}
-
-export async function getAllServices(): Promise<Service[]> {
-  const querySnapshot = await getDocs(collection(db, SERVICES_COLLECTION));
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
-}
-
-export async function updateService(id: string, data: Partial<Service>): Promise<void> {
-  await updateDoc(doc(db, SERVICES_COLLECTION, id), data);
+/** Création ou mise à jour (upsert) avec un identifiant choisi par l'app. */
+export async function saveService({ id, ...data }: StoredService): Promise<void> {
+  await setDoc(doc(db, SERVICES, id), clean(data), { merge: true });
 }
 
 export async function deleteService(id: string): Promise<void> {
-  await deleteDoc(doc(db, SERVICES_COLLECTION, id));
+  await deleteDoc(doc(db, SERVICES, id));
 }
 
-export function subscribeToServices(callback: (services: Service[]) => void): () => void {
-  const unsubscribe = onSnapshot(collection(db, SERVICES_COLLECTION), (snapshot) => {
-    const services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
-    callback(services);
-  });
-  return unsubscribe;
+export function subscribeToServices(callback: (services: StoredService[]) => void): () => void {
+  return onSnapshot(collection(db, SERVICES), (snap) => callback(rows<StoredService>(snap)), onError('services'));
 }
 
 // === ÉQUIPE ===
 
-export async function createStaff(staff: Omit<Staff, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, STAFF_COLLECTION), staff);
-  return docRef.id;
-}
-
-export async function getStaff(id: string): Promise<Staff | null> {
-  const docSnap = await getDoc(doc(db, STAFF_COLLECTION, id));
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as Staff;
-  }
-  return null;
-}
-
-export async function getAllStaff(): Promise<Staff[]> {
-  const querySnapshot = await getDocs(collection(db, STAFF_COLLECTION));
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Staff[];
-}
-
-export async function updateStaff(id: string, data: Partial<Staff>): Promise<void> {
-  await updateDoc(doc(db, STAFF_COLLECTION, id), data);
+export async function saveStaff({ id, ...data }: Staff): Promise<void> {
+  await setDoc(doc(db, STAFF, id), clean(data), { merge: true });
 }
 
 export async function deleteStaff(id: string): Promise<void> {
-  await deleteDoc(doc(db, STAFF_COLLECTION, id));
+  await deleteDoc(doc(db, STAFF, id));
 }
 
 export function subscribeToStaff(callback: (staff: Staff[]) => void): () => void {
-  const unsubscribe = onSnapshot(collection(db, STAFF_COLLECTION), (snapshot) => {
-    const staff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Staff[];
-    callback(staff);
-  });
-  return unsubscribe;
+  return onSnapshot(collection(db, STAFF), (snap) => callback(rows<Staff>(snap)), onError('staff'));
 }

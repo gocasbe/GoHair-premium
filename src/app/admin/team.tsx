@@ -30,15 +30,17 @@ export default function Team() {
     if (!draft) return;
     if (!draft.name.trim()) return setErr(t('admin.needName'));
     const prev = staff.find((s) => s.id === draft.id);
-    store.upsertStaff({
+    store
+      .upsertStaff({
       id: draft.id ?? `e${Date.now()}`,
       name: draft.name.trim(),
       role: prev && L(prev.role, lang) === draft.role ? prev.role : { fr: draft.role.trim(), en: draft.role.trim() },
       rating: prev?.rating ?? 5,
       active: draft.active,
-    });
+      })
+      .then(() => toast(t('admin.saved'), 'success'))
+      .catch(() => toast(t('admin.saveError'), 'error'));
     setDraft(null);
-    toast(t('admin.saved'), 'success');
   };
 
   return (
@@ -63,7 +65,7 @@ export default function Team() {
                   </Text>
                 </View>
               </View>
-              <Toggle value={s.active} onChange={(v) => store.upsertStaff({ ...s, active: v })} label={t('admin.available')} />
+              <Toggle value={s.active} onChange={(v) => store.upsertStaff({ ...s, active: v }).catch(() => toast(t('admin.saveError'), 'error'))} label={t('admin.available')} />
             </Pressable>
           ))}
         </View>
@@ -85,9 +87,11 @@ export default function Team() {
                   variant="danger"
                   icon="trash-2"
                   onPress={() => {
-                    store.removeStaff(draft.id!);
+                    store
+                      .removeStaff(draft.id!)
+                      .then(() => toast(t('admin.deleted'), 'success'))
+                      .catch(() => toast(t('admin.saveError'), 'error'));
                     setDraft(null);
-                    toast(t('admin.deleted'), 'success');
                   }}
                   style={{ flex: 1 }}
                 />

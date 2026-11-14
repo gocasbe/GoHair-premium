@@ -9,8 +9,8 @@ import { Header, Input } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
 import { useI18n } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
-import { googleSignInAvailable, registerWithEmail, signInWithGoogle } from '@/lib/auth';
-import { colors, radius } from '@/lib/theme';
+import { authErrorKey, googleSignInAvailable, registerWithEmail, signInWithGoogle } from '@/lib/auth';
+import { colors } from '@/lib/theme';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,13 +38,12 @@ export default function Register() {
     if (e.name || e.email || e.password) return;
     setBusy(true);
     try {
-      const user = await registerWithEmail(email.trim(), password);
+      const user = await registerWithEmail(email.trim(), password, name.trim());
       await signIn(user);
       toast(t('auth.verifyEmailSent'), 'success');
       router.replace('/home');
-    } catch (error: any) {
-      const errorMessage = error.code || error.message || t('auth.registerError');
-      toast(errorMessage, 'error');
+    } catch (error) {
+      toast(t(authErrorKey(error, 'auth.registerError')), 'error');
     } finally {
       setBusy(false);
     }
@@ -56,8 +55,8 @@ export default function Register() {
       const user = await signInWithGoogle();
       await signIn(user);
       router.replace('/home');
-    } catch (error: any) {
-      toast(error.message || t('auth.googleError'), 'error');
+    } catch (error) {
+      toast(t(authErrorKey(error, 'auth.googleError')), 'error');
     } finally {
       setGoogleBusy(false);
     }

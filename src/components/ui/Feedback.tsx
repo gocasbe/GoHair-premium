@@ -13,7 +13,7 @@ export const useToast = () => useContext(ctx);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const [t, setT] = useState<{ message: string; kind: Kind } | null>(null);
-  const op = useRef(new Animated.Value(0)).current;
+  const [op] = useState(() => new Animated.Value(0));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const show = useCallback((message: string, kind: Kind = 'info') => {

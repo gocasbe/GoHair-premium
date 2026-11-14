@@ -1,7 +1,22 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useSyncExternalStore } from 'react';
 import { Booking, BookingStatus, Service, Staff, initialServices, initialStaff } from './data';
-import { createBooking, updateBooking, subscribeToBookings, subscribeToServices, subscribeToStaff, updateService, deleteService, updateStaff, deleteStaff } from './firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from './firebase';
+import {
+  createBooking,
+  deleteService,
+  deleteStaff,
+  saveService,
+  saveStaff,
+  subscribeToBookings,
+  subscribeToServices,
+  subscribeToStaff,
+  updateBooking,
+  type StoredBooking,
+  type StoredService,
+} from './firestore';
+import { img } from './images';
 
 /**
  * Store global connecté à Firestore (réservations, services, équipe) + AsyncStorage (favoris).
@@ -19,42 +34,49 @@ const commit = (patch: Partial<State>) => {
   listeners.forEach((l) => l());
 };
 
-// Initialiser Firestore subscriptions
-let unsubscribeBookings: (() => void) | null = null;
-let unsubscribeServices: (() => void) | null = null;
-let unsubscribeStaff: (() => void) | null = null;
+// Les images sont locales (require) : on les réattache aux prestations venant de Firestore.
+const fallbackImage: Record<Service['category'], Service['image']> = { women: img.hairStyle, men: img.spraying, kids: img.shampoo, care: img.faceMassage };
+const withImage = (s: StoredService): Service => ({ ...s, image: initialServices.find((x) => x.id === s.id)?.image ?? fallbackImage[s.category] ?? img.hairStyle });
+
+// `mine` dépend de l'utilisateur connecté : recalculé à chaque changement de réservations ou de session.
+let rawBookings: StoredBooking[] = [];
+let currentUid: string | null = null;
+const publishBookings = () => commit({ bookings: rawBookings.map((b) => ({ ...b, mine: !!currentUid && b.userId === currentUid })) });
+
+let started = false;
+const unsubscribers: (() => void)[] = [];
 
 export async function initializeStore() {
-  // Charger les favoris depuis AsyncStorage
+  if (started) return;
+  started = true;
+
   try {
     const stored = await AsyncStorage.getItem(FAVORITES_KEY);
-    if (stored) {
-      state.favorites = JSON.parse(stored);
-    }
+    if (stored) commit({ favorites: JSON.parse(stored) });
   } catch (error) {
     console.error('Error loading favorites:', error);
   }
 
-  // S'abonner aux changements Firestore
-  unsubscribeBookings = subscribeToBookings((bookings) => {
-    commit({ bookings });
-  });
-
-  unsubscribeServices = subscribeToServices((services) => {
-    commit({ services });
-  });
-
-  unsubscribeStaff = subscribeToStaff((staff) => {
-    commit({ staff });
-  });
+  unsubscribers.push(
+    onAuthStateChanged(auth, (user) => {
+      currentUid = user?.uid ?? null;
+      publishBookings();
+    }),
+    subscribeToBookings((bookings) => {
+      rawBookings = bookings;
+      publishBookings();
+    }),
+    // Collection vide (pas encore initialisée) : on garde le catalogue par défaut plutôt qu'un écran vide.
+    subscribeToServices((services) => commit({ services: services.length ? services.map(withImage) : initialServices })),
+    subscribeToStaff((staff) => commit({ staff: staff.length ? staff : initialStaff })),
+  );
 
   commit({ ready: true });
 }
 
 export function cleanupStore() {
-  unsubscribeBookings?.();
-  unsubscribeServices?.();
-  unsubscribeStaff?.();
+  unsubscribers.splice(0).forEach((u) => u());
+  started = false;
 }
 
 export const store = {
@@ -63,18 +85,15 @@ export const store = {
     listeners.add(l);
     return () => listeners.delete(l);
   },
-  addBooking: async (b: Omit<Booking, 'id'>) => {
-    const id = await createBooking(b);
-    // Firestore va mettre à jour state via le subscription
+  /** Crée la réservation pour l'utilisateur connecté et renvoie son identifiant Firestore. */
+  addBooking: async (b: Omit<Booking, 'id' | 'mine' | 'userId'>): Promise<string> => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('Not signed in');
+    return createBooking({ ...b, userId });
   },
-  setBookingStatus: async (id: string, status: BookingStatus) => {
-    await updateBooking(id, { status });
-    // Firestore va mettre à jour state via le subscription
-  },
+  setBookingStatus: (id: string, status: BookingStatus) => updateBooking(id, { status }),
   toggleFavorite: async (id: string) => {
-    const updated = state.favorites.includes(id) 
-      ? state.favorites.filter((f) => f !== id) 
-      : [...state.favorites, id];
+    const updated = state.favorites.includes(id) ? state.favorites.filter((f) => f !== id) : [...state.favorites, id];
     commit({ favorites: updated });
     try {
       await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(updated));
@@ -82,31 +101,10 @@ export const store = {
       console.error('Error saving favorites:', error);
     }
   },
-  upsertService: async (s: Service) => {
-    if (state.services.some((x) => x.id === s.id)) {
-      await updateService(s.id, s);
-    } else {
-      // Pour les nouveaux services, on utiliserait createService
-      // Pour l'instant, on garde le comportement local
-      commit({ services: [...state.services, s] });
-    }
-  },
-  removeService: async (id: string) => {
-    await deleteService(id);
-    // Firestore va mettre à jour state via le subscription
-  },
-  upsertStaff: async (s: Staff) => {
-    if (state.staff.some((x) => x.id === s.id)) {
-      await updateStaff(s.id, s);
-    } else {
-      // Pour les nouveaux membres, on utiliserait createStaff
-      commit({ staff: [...state.staff, s] });
-    }
-  },
-  removeStaff: async (id: string) => {
-    await deleteStaff(id);
-    // Firestore va mettre à jour state via le subscription
-  },
+  upsertService: ({ image: _image, ...s }: Service) => saveService(s),
+  removeService: (id: string) => deleteService(id),
+  upsertStaff: (s: Staff) => saveStaff(s),
+  removeStaff: (id: string) => deleteStaff(id),
 };
 
 export function useStore<T>(selector: (s: State) => T): T {

@@ -16,7 +16,9 @@ export type Booking = {
   id: string;
   salonId: string;
   customer: string;
-  /** true pour les réservations du client connecté */
+  /** uid Firebase du client qui a réservé */
+  userId?: string;
+  /** calculé localement (userId === utilisateur connecté), jamais stocké */
   mine: boolean;
   serviceIds: string[];
   staffId: string | null;
@@ -52,9 +54,6 @@ export const initialStaff: Staff[] = [
   { id: 'e2', name: 'Thomas Lecomte', role: { fr: 'Coiffeur-barbier', en: 'Hairdresser & barber' }, rating: 4.8, active: true },
   { id: 'e3', name: 'Inès Benali', role: { fr: 'Coloriste', en: 'Colourist' }, rating: 4.9, active: true },
 ];
-
-const NAMES = ['Camille Martin', 'Lucas Dubois', 'Emma Lambert', 'Noah Peeters', 'Léa Dupuis', 'Hugo Janssens', 'Chloé Lemaire', 'Louis Renard', 'Manon Collin', 'Jules Hanot'];
-const TIMES = ['09:00', '09:30', '10:30', '11:00', '13:30', '14:00', '15:30', '16:30', '17:00'];
 
 /** Données de réservation vides (sans démo). */
 export const initialBookings: Booking[] = [];

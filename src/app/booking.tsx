@@ -1,14 +1,14 @@
 import { Feather } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Feedback';
 import { Card, Chip, Header, Input } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
-import { Booking, L, SLOTS, fmtTime, salons } from '@/lib/data';
+import { L, SLOTS, fmtTime, salons } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { store, useStore } from '@/lib/store';
@@ -27,7 +27,7 @@ export default function BookingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { uid } = useSession();
+  const { email } = useSession();
   const salon = salons.find((s) => s.id === salonId) ?? salons[0];
   const allServices = useStore((s) => s.services);
   const staff = useStore((s) => s.staff).filter((s) => s.active);
@@ -42,6 +42,7 @@ export default function BookingScreen() {
   const [staffId, setStaffId] = useState<string | null>(null);
   const [pay, setPay] = useState<'onsite' | 'card'>('onsite');
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const days = useMemo(() => Array.from({ length: DAYS }, (_, i) => dayjs().add(i, 'day')), []);
 
@@ -56,22 +57,36 @@ export default function BookingScreen() {
   const afternoon = SLOTS.filter((s) => s >= '12:00');
 
   // si le créneau choisi devient indisponible (changement de jour / coiffeur), on le désélectionne
-  useEffect(() => {
-    if (time && taken(time)) setTime(null);
-  }, [day, staffId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pickDay = (d: string) => {
+    setDay(d);
+    setTime(null);
+  };
+  const pickStaff = (id: string | null) => {
+    setStaffId(id);
+    setTime(null);
+  };
 
   const back = () => (step === 0 || step === 2 ? (router.canGoBack() ? router.back() : router.replace('/home')) : setStep(step - 1));
   const next = () => {
-    if (step === 0 && !time) return toast(t('book.needTime'), 'error');
+    // un autre client peut avoir pris le créneau entre-temps (mise à jour Firestore en direct)
+    if (step === 0 && (!time || taken(time))) return toast(t('book.needTime'), 'error');
     setStep(step + 1);
   };
 
-  const confirm = () => {
-    const b: Booking = { id: `m${Date.now()}`, salonId: salon.id, customer: (uid ?? 'client').split('@')[0], mine: true, serviceIds: chosen.map((s) => s.id), staffId, date: day, time: time!, status: 'pending', total, pay };
-    store.addBooking(b);
-    // Programmer un rappel 24h avant le rendez-vous
-    scheduleReminderNotification(b.id, salon.name, day, time!);
-    setStep(2);
+  const confirm = async () => {
+    if (!time || saving) return;
+    setSaving(true);
+    try {
+      const id = await store.addBooking({ salonId: salon.id, customer: (email || 'client').split('@')[0], serviceIds: chosen.map((s) => s.id), staffId, date: day, time, status: 'pending', total, pay });
+      // Programmer un rappel 24h avant le rendez-vous (un échec ici ne doit pas annuler la réservation)
+      scheduleReminderNotification(id, salon.name, day, time).catch(() => {});
+      setStep(2);
+    } catch (error) {
+      console.error('addBooking failed:', error);
+      toast(t('book.error'), 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const when = `${dayjs(day).format('dddd D MMMM')} · ${time ? fmtTime(time, lang) : ''}`;
@@ -90,7 +105,7 @@ export default function BookingScreen() {
                 const key = d.format('YYYY-MM-DD');
                 const on = key === day;
                 return (
-                  <Pressable key={key} onPress={() => setDay(key)} accessibilityRole="button" accessibilityState={{ selected: on }} style={[styles.day, on && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+                  <Pressable key={key} onPress={() => pickDay(key)} accessibilityRole="button" accessibilityState={{ selected: on }} style={[styles.day, on && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
                     <Text variant="caption" color={on ? 'rgba(255,255,255,0.8)' : colors.muted} style={{ fontSize: 10 }}>
                       {d.format('ddd')}
                     </Text>
@@ -106,9 +121,9 @@ export default function BookingScreen() {
               {t('book.stylist')}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, marginTop: 14 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
-              <Chip label={t('book.any')} icon="users" selected={staffId === null} onPress={() => setStaffId(null)} />
+              <Chip label={t('book.any')} icon="users" selected={staffId === null} onPress={() => pickStaff(null)} />
               {staff.map((m) => (
-                <Chip key={m.id} label={m.name.split(' ')[0]} selected={staffId === m.id} onPress={() => setStaffId(m.id)} />
+                <Chip key={m.id} label={m.name.split(' ')[0]} selected={staffId === m.id} onPress={() => pickStaff(m.id)} />
               ))}
             </ScrollView>
 
@@ -193,7 +208,7 @@ export default function BookingScreen() {
           </ScrollView>
           <Footer insets={insets.bottom}>
             <View style={{ flex: 1 }}>
-              <Button title={t('book.confirm', { amount: money(total) })} size="lg" icon="check" onPress={confirm} />
+              <Button title={t('book.confirm', { amount: money(total) })} size="lg" icon="check" onPress={confirm} loading={saving} />
               <Text variant="small" color={colors.muted} align="center" style={{ marginTop: 8 }}>
                 {t('book.free')}
               </Text>
@@ -265,8 +280,8 @@ function Footer({ children, insets }: { children: React.ReactNode; insets: numbe
 
 /** Coche animée de confirmation (ressort + halo). */
 function Tick() {
-  const scale = useRef(new Animated.Value(0.4)).current;
-  const halo = useRef(new Animated.Value(0)).current;
+  const [scale] = useState(() => new Animated.Value(0.4));
+  const [halo] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.parallel([Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }), Animated.timing(halo, { toValue: 1, duration: 600, useNativeDriver: true })]).start();
   }, [scale, halo]);

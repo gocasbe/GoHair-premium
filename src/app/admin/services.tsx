@@ -1,4 +1,3 @@
-import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -33,7 +32,8 @@ export default function Services() {
     if (!draft) return;
     if (!draft.name.trim()) return setErr(t('admin.needName'));
     const prev = services.find((s) => s.id === draft.id);
-    store.upsertService({
+    store
+      .upsertService({
       id: draft.id ?? `v${Date.now()}`,
       name: prev && L(prev.name, lang) === draft.name ? prev.name : { fr: draft.name.trim(), en: draft.name.trim() },
       category: draft.category,
@@ -41,9 +41,10 @@ export default function Services() {
       duration: Math.max(5, Number(draft.duration) || 30),
       image: prev?.image ?? img.hairStyle,
       active: draft.active,
-    });
+      })
+      .then(() => toast(t('admin.saved'), 'success'))
+      .catch(() => toast(t('admin.saveError'), 'error'));
     setDraft(null);
-    toast(t('admin.saved'), 'success');
   };
 
   return (
@@ -63,7 +64,7 @@ export default function Services() {
                 </Text>
                 <Badge label={t(`cat.${s.category}`)} tone="accent" />
               </View>
-              <Toggle value={s.active} onChange={(v) => store.upsertService({ ...s, active: v })} label={t('admin.active')} />
+              <Toggle value={s.active} onChange={(v) => store.upsertService({ ...s, active: v }).catch(() => toast(t('admin.saveError'), 'error'))} label={t('admin.active')} />
             </Pressable>
           ))}
         </View>
@@ -100,9 +101,11 @@ export default function Services() {
                   variant="danger"
                   icon="trash-2"
                   onPress={() => {
-                    store.removeService(draft.id!);
+                    store
+                      .removeService(draft.id!)
+                      .then(() => toast(t('admin.deleted'), 'success'))
+                      .catch(() => toast(t('admin.saveError'), 'error'));
                     setDraft(null);
-                    toast(t('admin.deleted'), 'success');
                   }}
                   style={{ flex: 1 }}
                 />

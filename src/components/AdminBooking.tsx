@@ -22,8 +22,10 @@ export function AdminBooking({ b, showDate }: { b: Booking; showDate?: boolean }
   const customer = b.customer.split(' ').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
 
   const set = (status: Booking['status'], msg: string) => {
-    store.setBookingStatus(b.id, status);
-    toast(msg, 'success');
+    store
+      .setBookingStatus(b.id, status)
+      .then(() => toast(msg, 'success'))
+      .catch(() => toast(t('admin.saveError'), 'error'));
   };
 
   return (

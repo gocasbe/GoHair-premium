@@ -46,10 +46,12 @@ export default function Bookings() {
                   title={t('bookings.cancel')}
                   variant="danger"
                   style={{ flex: 1, height: 42 }}
-                  onPress={() => {
-                    store.setBookingStatus(b.id, 'canceled');
-                    toast(t('bookings.canceled'), 'success');
-                  }}
+                  onPress={() =>
+                    store
+                      .setBookingStatus(b.id, 'canceled')
+                      .then(() => toast(t('bookings.canceled'), 'success'))
+                      .catch(() => toast(t('admin.saveError'), 'error'))
+                  }
                 />
               ) : (
                 <Button title={t('bookings.rebook')} variant="secondary" icon="rotate-cw" style={{ flex: 1, height: 42 }} onPress={() => router.push(`/booking?salon=${b.salonId}&services=${b.serviceIds.join(',')}`)} />

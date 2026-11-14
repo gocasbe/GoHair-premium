@@ -40,11 +40,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [auth]);
 
   const change = useCallback(async (next: AuthUser | null) => {
+    // Déjà dans cet état (ex. Firebase a déjà notifié la déconnexion) : setAuth ne
+    // provoquerait aucun rendu, l'effet ne s'exécuterait pas et la promesse ne se résoudrait jamais.
+    const same = ref.current === next;
     ref.current = next;
     try {
       if (next) await AsyncStorage.setItem(KEY, JSON.stringify(next));
       else await AsyncStorage.removeItem(KEY);
     } catch {}
+    if (same) return;
     await new Promise<void>((resolve) => {
       waiters.current.push(resolve);
       setAuth(next);

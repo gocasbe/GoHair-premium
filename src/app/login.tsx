@@ -9,8 +9,8 @@ import { Header, Input } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
 import { useI18n } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
-import { googleSignInAvailable, resetPassword, signInWithEmail, signInWithGoogle } from '@/lib/auth';
-import { colors, radius } from '@/lib/theme';
+import { authErrorKey, googleSignInAvailable, resetPassword, signInWithEmail, signInWithGoogle } from '@/lib/auth';
+import { colors } from '@/lib/theme';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,8 +41,8 @@ export default function Login() {
       }
       
       router.replace(user.role === 'admin' ? '/admin' : '/home');
-    } catch (error: any) {
-      toast(error.message || t('auth.loginError'), 'error');
+    } catch (error) {
+      toast(t(authErrorKey(error, 'auth.loginError')), 'error');
     } finally {
       setBusy(false);
     }
@@ -54,8 +54,8 @@ export default function Login() {
       const user = await signInWithGoogle();
       await signIn(user);
       router.replace(user.role === 'admin' ? '/admin' : '/home');
-    } catch (error: any) {
-      toast(error.message || t('auth.googleError'), 'error');
+    } catch (error) {
+      toast(t(authErrorKey(error, 'auth.googleError')), 'error');
     } finally {
       setGoogleBusy(false);
     }
@@ -70,8 +70,8 @@ export default function Login() {
     try {
       await resetPassword(mail);
       toast(t('auth.resetSent'), 'success');
-    } catch (error: any) {
-      toast(error.message || t('auth.resendError'), 'error');
+    } catch (error) {
+      toast(t(authErrorKey(error, 'auth.resendError')), 'error');
     }
   };
 
