@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/ui/Feedback';
 import { I18nProvider } from '@/lib/i18n';
 import { SessionProvider, useSession } from '@/lib/session';
+import { initializeStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
 import { dict } from '@/lib/translations';
 
@@ -16,6 +17,11 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({ Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold });
+  
+  useEffect(() => {
+    initializeStore();
+  }, []);
+  
   return (
     <SafeAreaProvider>
       <I18nProvider dict={dict}>
