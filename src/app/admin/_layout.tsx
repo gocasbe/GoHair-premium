@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import React from 'react';
 import { ColorValue, Platform } from 'react-native';
 import { useI18n } from '@/lib/i18n';
+import { useAdminBookings } from '@/lib/store';
 import { FONT, colors } from '@/lib/theme';
 
 const icon = (name: keyof typeof Feather.glyphMap) =>
@@ -13,6 +14,8 @@ const icon = (name: keyof typeof Feather.glyphMap) =>
 /** Back-office : 4 onglets. Réservé au rôle « admin » (garde dans le layout racine). */
 export default function AdminLayout() {
   const { t } = useI18n();
+  // une seule écoute des réservations pour tous les onglets admin, arrêtée en quittant l'espace admin
+  useAdminBookings();
   return (
     <Tabs
       screenOptions={{

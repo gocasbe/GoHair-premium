@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useSyncExternalStore } from 'react';
+import dayjs from 'dayjs';
+import { useEffect, useSyncExternalStore } from 'react';
 import { Booking, BookingStatus, Service, Staff, initialServices, initialStaff } from './data';
 import { auth } from './firebase';
 import {
@@ -9,9 +10,11 @@ import {
   deleteStaff,
   saveService,
   saveStaff,
-  subscribeToBookings,
+  subscribeToBookingsSince,
+  subscribeToSalonDay,
   subscribeToServices,
   subscribeToStaff,
+  subscribeToUserBookings,
   updateBooking,
   type StoredBooking,
   type StoredService,
@@ -38,10 +41,42 @@ const commit = (patch: Partial<State>) => {
 const fallbackImage: Record<Service['category'], Service['image']> = { women: img.hairStyle, men: img.spraying, kids: img.shampoo, care: img.faceMassage };
 const withImage = (s: StoredService): Service => ({ ...s, image: initialServices.find((x) => x.id === s.id)?.image ?? fallbackImage[s.category] ?? img.hairStyle });
 
-// `mine` dépend de l'utilisateur connecté : recalculé à chaque changement de réservations ou de session.
-let rawBookings: StoredBooking[] = [];
+/**
+ * Réservations : plusieurs requêtes Firestore ciblées (« flux ») sont fusionnées.
+ * Chaque flux n'est écouté que tant qu'un écran en a besoin (compteur de références),
+ * ce qui garde le nombre de lectures bas.
+ * `mine` dépend de l'utilisateur connecté : recalculé à chaque changement de réservations ou de session.
+ */
+const feedData = new Map<string, StoredBooking[]>();
+const feeds = new Map<string, { refs: number; stop: () => void }>();
 let currentUid: string | null = null;
-const publishBookings = () => commit({ bookings: rawBookings.map((b) => ({ ...b, mine: !!currentUid && b.userId === currentUid })) });
+const publishBookings = () => {
+  const byId = new Map<string, StoredBooking>();
+  feedData.forEach((list) => list.forEach((b) => byId.set(b.id, b)));
+  commit({ bookings: [...byId.values()].map((b) => ({ ...b, mine: !!currentUid && b.userId === currentUid })) });
+};
+type Subscribe = (callback: (bookings: StoredBooking[]) => void) => () => void;
+const watch = (key: string, subscribe: Subscribe) => {
+  const feed = feeds.get(key);
+  if (feed) feed.refs++;
+  else
+    feeds.set(key, {
+      refs: 1,
+      stop: subscribe((list) => {
+        feedData.set(key, list);
+        publishBookings();
+      }),
+    });
+  return () => {
+    const f = feeds.get(key);
+    if (!f || --f.refs > 0) return;
+    f.stop();
+    feeds.delete(key);
+    feedData.delete(key);
+    publishBookings();
+  };
+};
+let stopUserFeed: (() => void) | null = null;
 
 // Tant que Firestore n'a aucune prestation / aucun membre, on affiche le catalogue par défaut.
 // À la première modification par le gérant, ce catalogue est d'abord enregistré dans Firestore,
@@ -75,13 +110,18 @@ export async function initializeStore() {
 
   unsubscribers.push(
     onAuthStateChanged(auth, (user) => {
-      currentUid = user?.uid ?? null;
+      const uid = user?.uid ?? null;
+      if (uid !== currentUid) {
+        stopUserFeed?.();
+        stopUserFeed = uid ? watch(`user:${uid}`, (cb) => subscribeToUserBookings(uid, cb)) : null;
+      }
+      currentUid = uid;
       publishBookings();
     }),
-    subscribeToBookings((bookings) => {
-      rawBookings = bookings;
-      publishBookings();
-    }),
+    () => {
+      stopUserFeed?.();
+      stopUserFeed = null;
+    },
     // Collection vide (pas encore initialisée) : on garde le catalogue par défaut plutôt qu'un écran vide.
     subscribeToServices((services) => {
       servicesInDb = services.length > 0;
@@ -140,6 +180,19 @@ export const store = {
     await deleteStaff(id);
   },
 };
+
+/** Tunnel de réservation : créneaux déjà pris dans ce salon ce jour-là. */
+export function useSalonDayBookings(salonId: string, date: string) {
+  useEffect(() => watch(`day:${salonId}:${date}`, (cb) => subscribeToSalonDay(salonId, date, cb)), [salonId, date]);
+}
+
+/** Espace admin : 7 derniers jours (statistiques) + tout ce qui est à venir (planning, demandes). */
+export function useAdminBookings() {
+  useEffect(() => {
+    const since = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
+    return watch(`since:${since}`, (cb) => subscribeToBookingsSince(since, cb));
+  }, []);
+}
 
 export function useStore<T>(selector: (s: State) => T): T {
   return useSyncExternalStore(store.subscribe, () => selector(state), () => selector(state));

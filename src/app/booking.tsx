@@ -11,7 +11,7 @@ import { Text } from '@/components/ui/Text';
 import { L, SLOTS, fmtTime, salons } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
-import { store, useStore } from '@/lib/store';
+import { store, useSalonDayBookings, useStore } from '@/lib/store';
 import { scheduleReminderNotification } from '@/lib/notifications';
 import { colors, radius, shadow } from '@/lib/theme';
 
@@ -43,6 +43,7 @@ export default function BookingScreen() {
   const [pay, setPay] = useState<'onsite' | 'card'>('onsite');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  useSalonDayBookings(salon.id, day);
 
   const days = useMemo(() => Array.from({ length: DAYS }, (_, i) => dayjs().add(i, 'day')), []);
 

@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc, type DocumentData, type QuerySnapshot } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, setDoc, updateDoc, where, type DocumentData, type Query, type QuerySnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Booking, Service, Staff } from './data';
 
@@ -32,9 +32,26 @@ export async function updateBooking(id: string, data: Partial<Omit<StoredBooking
   await updateDoc(doc(db, BOOKINGS, id), clean(data));
 }
 
-export function subscribeToBookings(callback: (bookings: StoredBooking[]) => void): () => void {
-  return onSnapshot(collection(db, BOOKINGS), (snap) => callback(rows<StoredBooking>(snap)), onError('bookings'));
-}
+/**
+ * Lectures ciblées (plan gratuit Firebase : 50 000 lectures / jour) : on ne charge jamais
+ * toute la collection, seulement ce dont l'écran a besoin. Aucune de ces requêtes
+ * ne demande d'index composite.
+ */
+type Listener = (bookings: StoredBooking[]) => void;
+const listen = (q: Query<DocumentData>, what: string, callback: Listener) =>
+  onSnapshot(q, (snap) => callback(rows<StoredBooking>(snap)), onError(what));
+
+/** Réservations d'un client (« Mes réservations », compteur du profil). */
+export const subscribeToUserBookings = (userId: string, callback: Listener) =>
+  listen(query(collection(db, BOOKINGS), where('userId', '==', userId)), 'bookings/user', callback);
+
+/** Occupation d'un salon pour un jour (créneaux déjà pris dans le tunnel de réservation). */
+export const subscribeToSalonDay = (salonId: string, date: string, callback: Listener) =>
+  listen(query(collection(db, BOOKINGS), where('salonId', '==', salonId), where('date', '==', date)), 'bookings/day', callback);
+
+/** Espace admin : toutes les réservations à partir d'une date (historique récent + à venir). */
+export const subscribeToBookingsSince = (date: string, callback: Listener) =>
+  listen(query(collection(db, BOOKINGS), where('date', '>=', date)), 'bookings/since', callback);
 
 // === PRESTATIONS ===
 
