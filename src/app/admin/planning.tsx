@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AdminBooking } from '@/components/AdminBooking';
 import { AdminTop } from '@/components/AdminTop';
+import { SalonFilter, useSalonFilter } from '@/components/SalonFilter';
 import { Button } from '@/components/ui/Button';
 import { Empty } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
@@ -22,12 +23,14 @@ export default function Planning() {
   const all = useStore((s) => s.bookings);
   const staff = useStore((s) => s.staff);
   const [day, setDay] = useState(dayjs().format('YYYY-MM-DD'));
+  const { salonId, matches } = useSalonFilter();
   const days = useMemo(() => RANGE.map((o) => dayjs().add(o, 'day')), []);
-  const list = useMemo(() => all.filter((b) => b.salonId === SALON_ID && b.date === day && b.status !== 'canceled').sort((a, b) => a.time.localeCompare(b.time)), [all, day]);
-  const countOn = (key: string) => all.filter((b) => b.salonId === SALON_ID && b.date === key && b.status !== 'canceled').length;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const list = useMemo(() => all.filter((b) => matches(b.salonId) && b.date === day && b.status !== 'canceled').sort((a, b) => a.time.localeCompare(b.time)), [all, day, salonId]);
+  const countOn = (key: string) => all.filter((b) => matches(b.salonId) && b.date === key && b.status !== 'canceled').length;
 
   const notifyAvailability = async () => {
-    const salon = salons.find((s) => s.id === SALON_ID);
+    const salon = salons.find((s) => s.id === (salonId ?? SALON_ID));
     const stylist = staff[0]?.name || 'Équipe';
     const time = list.length > 0 ? list[0].time : '09:00';
     
@@ -42,6 +45,7 @@ export default function Planning() {
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
       <AdminTop title={t('admin.planning')} subtitle={dayjs(day).format('dddd D MMMM YYYY')} />
+      <SalonFilter />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 14, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
         {days.map((d) => {
           const key = d.format('YYYY-MM-DD');

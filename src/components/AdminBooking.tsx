@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/Feedback';
 import { Avatar, Badge, Card } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
 import { STATUS_TONE } from '@/components/BookingCard';
-import { Booking, L, fmtTime } from '@/lib/data';
+import { Booking, L, fmtTime, salons } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
 import { store, useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
@@ -19,6 +19,7 @@ export function AdminBooking({ b, showDate }: { b: Booking; showDate?: boolean }
   const staff = useStore((s) => s.staff);
   const names = b.serviceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean).map((s) => L(s!.name, lang)).join(' · ');
   const who = staff.find((s) => s.id === b.staffId)?.name.split(' ')[0] ?? t('admin.anyone');
+  const salonName = salons.find((s) => s.id === b.salonId)?.name ?? b.salonId;
   const customer = b.customer.split(' ').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
 
   const set = (status: Booking['status'], msg: string) => {
@@ -42,6 +43,9 @@ export function AdminBooking({ b, showDate }: { b: Booking; showDate?: boolean }
           </Text>
           <Text variant="small" color={colors.muted} numberOfLines={1}>
             {names}
+          </Text>
+          <Text variant="small" weight="semibold" color={colors.accent} numberOfLines={1}>
+            {salonName}
           </Text>
         </View>
         <View style={{ alignItems: 'flex-end', gap: 8 }}>

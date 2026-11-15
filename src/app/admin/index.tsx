@@ -3,10 +3,10 @@ import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import { AdminBooking } from '@/components/AdminBooking';
 import { AdminTop } from '@/components/AdminTop';
+import { SalonFilter, useSalonFilter } from '@/components/SalonFilter';
 import { BarChart, Kpi } from '@/components/ui/Charts';
 import { Card, Empty, SectionTitle } from '@/components/ui/Primitives';
 import { Text } from '@/components/ui/Text';
-import { SALON_ID } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useStore } from '@/lib/store';
@@ -14,12 +14,13 @@ import { useStore } from '@/lib/store';
 /** Tableau de bord : 4 KPI, courbe de CA sur 7 jours, file des réservations à traiter. */
 export default function Dashboard() {
   const { t, money } = useI18n();
-  const { uid } = useSession();
+  const { email } = useSession();
+  const { salonId, matches } = useSalonFilter();
   const all = useStore((s) => s.bookings);
   const staff = useStore((s) => s.staff);
 
   const stats = useMemo(() => {
-    const mine = all.filter((b) => b.salonId === SALON_ID);
+    const mine = all.filter((b) => matches(b.salonId));
     const today = dayjs().format('YYYY-MM-DD');
     const live = mine.filter((b) => b.status !== 'canceled');
     const todayList = live.filter((b) => b.date === today);
@@ -34,13 +35,14 @@ export default function Dashboard() {
     const fill = Math.min(100, Math.round((todayList.length / Math.max(1, staff.filter((s) => s.active).length * 8)) * 100));
     const pending = mine.filter((b) => b.status === 'pending' && b.date >= today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     return { todayCount: todayList.length, revenue, total7: revenue.reduce((n, d) => n + d.value, 0), clients, fill, pending };
-  }, [all, staff]);
+  }, [all, staff, salonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const name = (uid ?? 'sophie').split('@')[0].replace(/[._-]+/g, ' ');
+  const name = (email || 'admin').split('@')[0].replace(/[._-]+/g, ' ');
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
       <AdminTop title={t('admin.dashboard')} subtitle={`${t('admin.hello', { name: name.charAt(0).toUpperCase() + name.slice(1) })} — ${t('admin.sub')}`} />
+      <SalonFilter />
       <View style={{ paddingHorizontal: 20 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
           <Kpi icon="calendar" label={t('admin.today')} value={String(stats.todayCount)} hint={t('admin.todayHint', { n: stats.pending.filter((b) => b.date === dayjs().format('YYYY-MM-DD')).length })} />
@@ -60,7 +62,7 @@ export default function Dashboard() {
         {stats.pending.length === 0 ? (
           <Empty icon="check-circle" title={t('admin.nothing')} text={t('admin.nothingText')} />
         ) : (
-          stats.pending.slice(0, 5).map((b) => <AdminBooking key={b.id} b={b} showDate />)
+          stats.pending.map((b) => <AdminBooking key={b.id} b={b} showDate />)
         )}
       </View>
     </ScrollView>
